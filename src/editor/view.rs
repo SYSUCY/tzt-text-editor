@@ -7,20 +7,15 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Default)]
 pub struct View {
-    buffer: Buffer
+    buffer: Buffer,
 }
 
 impl View {
-    pub fn render(&self) -> Result<(), Error> {
+    pub fn render_welcome_screen() -> Result<(), Error> {
         let Size { height, .. } = Terminal::size()?;
 
         for current_row in 0..height {
             Terminal::clear_line()?;
-            if let Some(line) = self.buffer.lines.get(current_row) {
-                Terminal::print(line)?;
-                Terminal::print("\r\n")?;
-                continue;
-            }
             // we allow this since we don't care if our welcome message is put _exactly_ in the middle.
             // it's allowed to be a bit up or down
             #[allow(clippy::integer_division)]
@@ -32,6 +27,28 @@ impl View {
             if current_row.saturating_add(1) < height {
                 Terminal::print("\r\n")?;
             }
+        }
+        Ok(())
+    }
+    pub fn render_buffer(&self) -> Result<(), Error> {
+        let Size { height, .. } = Terminal::size()?;
+
+        for current_row in 0..height {
+            Terminal::clear_line()?;
+            if let Some(line) = self.buffer.lines.get(current_row) {
+                Terminal::print(line)?;
+                Terminal::print("\r\n")?;
+            } else {
+                Self::draw_empty_row()?;
+            }
+        }
+        Ok(())
+    }
+    pub fn render(&self) -> Result<(), Error> {
+        if self.buffer.is_empty() {
+            Self::render_welcome_screen()?;
+        } else {
+            self.render_buffer()?;
         }
         Ok(())
     }
@@ -53,5 +70,10 @@ impl View {
     fn draw_empty_row() -> Result<(), Error> {
         Terminal::print("~")?;
         Ok(())
+    }
+    pub fn load(&mut self, file_name: &str) {
+        if let Ok(buffer) = Buffer::load(file_name) {
+            self.buffer = buffer;
+        }
     }
 }
