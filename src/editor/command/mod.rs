@@ -1,12 +1,15 @@
-use crate::prelude::*;
 use crossterm::event::Event;
 use std::convert::TryFrom;
-mod movecommand;
-pub use movecommand::Move;
-mod system;
-pub use system::System;
+use crate::prelude::*;
+
 mod edit;
 pub use edit::Edit;
+
+mod movecommand;
+pub use movecommand::Move;
+
+mod system;
+pub use system::System;
 
 #[derive(Clone, Copy)]
 pub enum Command {

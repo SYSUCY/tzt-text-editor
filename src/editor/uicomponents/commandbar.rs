@@ -1,4 +1,5 @@
 use std::{cmp::min, io::Error};
+use unicode_width::UnicodeWidthStr;
 
 use crate::prelude::*;
 
@@ -22,20 +23,27 @@ impl CommandBar {
         }
         self.set_needs_redraw(true);
     }
+
     pub fn caret_position_col(&self) -> ColIdx {
-        let max_width = self
-            .prompt
-            .len()
-            .saturating_add(self.value.grapheme_count());
+        let prompt_width = UnicodeWidthStr::width(self.prompt.as_str());
+        let value_width = UnicodeWidthStr::width(self.value.to_string().as_str());
+        
+        // 计算提示符和输入值的实际显示宽度
+        let max_width = prompt_width + value_width;
+        
+        // 限制光标位置在可显示宽度范围内
         min(max_width, self.size.width)
     }
+
     pub fn value(&self) -> String {
         self.value.to_string()
     }
+
     pub fn set_prompt(&mut self, prompt: &str) {
         self.prompt = prompt.to_string();
         self.set_needs_redraw(true);
     }
+
     pub fn clear_value(&mut self) {
         self.value = Line::default();
         self.set_needs_redraw(true);
@@ -53,19 +61,20 @@ impl UIComponent for CommandBar {
         self.size = size;
     }
     fn draw(&mut self, origin: RowIdx) -> Result<(), Error> {
-        let area_for_value = self.size.width.saturating_sub(self.prompt.len()); //this is how much space there is between the right side of the prompt and the edge of the bar
-        let value_end = self.value.width(); // we always want to show the left part of the value, therefore the end of the visible range we try to access will be equal to the full width
-        let value_start = value_end.saturating_sub(area_for_value); //This should give us the start for the grapheme subrange we want to print out.
-        let message = format!(
-            "{}{}",
-            self.prompt,
-            self.value.get_visible_graphemes(value_start..value_end)
-        );
+        let area_for_value = self.size.width.saturating_sub(self.prompt.len()); 
+        let value_end = self.value.width(); 
+        let value_start = value_end.saturating_sub(area_for_value); 
+    
+        let visible_value = self.value.get_visible_graphemes(value_start..value_end);
+    
+        let message = format!("{}{}", self.prompt, visible_value);
         let to_print = if message.len() <= self.size.width {
             message
         } else {
-            String::new()
+            // 如果提示符和值的组合长度超过了可显示区域的宽度，只显示提示符
+            format!("{}{}", self.prompt, &visible_value)
         };
+    
         Terminal::print_row(origin, &to_print)
-    }
+    }    
 }

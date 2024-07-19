@@ -3,19 +3,24 @@ use std::{cmp::min, io::Error};
 use crate::editor::RowIdx;
 use crate::prelude::*;
 
-use super::super::{
+use crate::editor::{
     command::{Edit, Move},
     DocumentStatus, Line, Terminal,
 };
 use super::UIComponent;
-mod buffer;
-use buffer::Buffer;
-mod searchdirection;
-use searchdirection::SearchDirection;
+
 mod highlighter;
 use highlighter::Highlighter;
+
+mod buffer;
+use buffer::Buffer;
+
 mod fileinfo;
 use fileinfo::FileInfo;
+
+mod searchdirection;
+use searchdirection::SearchDirection;
+
 mod searchinfo;
 use searchinfo::SearchInfo;
 

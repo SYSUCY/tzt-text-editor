@@ -1,11 +1,14 @@
-use super::super::super::{Annotation, AnnotationType, FileType, Line};
+use crate::editor::{Annotation, AnnotationType, FileType, Line};
 use crate::prelude::*;
-mod syntaxhighlighter;
-use searchresulthighlighter::SearchResultHighlighter;
-use syntaxhighlighter::SyntaxHighlighter;
+
 mod rustsyntaxhighlighter;
-mod searchresulthighlighter;
 use rustsyntaxhighlighter::RustSyntaxHighlighter;
+
+mod searchresulthighlighter;
+use searchresulthighlighter::SearchResultHighlighter;
+
+mod syntaxhighlighter;
+use syntaxhighlighter::SyntaxHighlighter;
 
 fn create_syntax_highlighter(file_type: FileType) -> Option<Box<dyn SyntaxHighlighter>> {
     match file_type {

@@ -1,19 +1,21 @@
-mod attribute;
-use crate::prelude::*;
-use attribute::Attribute;
-use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::style::{
-    Attribute::{Reset, Reverse},
-    Print, ResetColor, SetBackgroundColor, SetForegroundColor,
+use crossterm::{
+    cursor::{Hide, MoveTo, Show},
+    style::{
+        Attribute::{Reset, Reverse},
+        Print, ResetColor, SetBackgroundColor, SetForegroundColor,
+    },
+    terminal::{
+        disable_raw_mode, enable_raw_mode, size, Clear, ClearType, DisableLineWrap, EnableLineWrap,
+        EnterAlternateScreen, LeaveAlternateScreen, SetTitle,
+    },
+    queue, Command,
 };
-use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, size, Clear, ClearType, DisableLineWrap, EnableLineWrap,
-    EnterAlternateScreen, LeaveAlternateScreen, SetTitle,
-};
-use crossterm::{queue, Command};
 use std::io::{stdout, Error, Write};
+use crate::prelude::*;
+use crate::editor::AnnotatedString;
 
-use super::AnnotatedString;
+mod attribute;
+use attribute::Attribute;
 
 /// Represents the Terminal.
 /// Edge Case for platforms where `usize` < `u16`:

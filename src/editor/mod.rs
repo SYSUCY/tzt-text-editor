@@ -1,34 +1,42 @@
-use crate::prelude::*;
 use crossterm::event::{read, Event, KeyEvent, KeyEventKind};
 use std::{
     env,
     io::Error,
     panic::{set_hook, take_hook},
 };
-mod annotatedstring;
-pub mod annotationtype;
-mod command;
-mod documentstatus;
-mod line;
-mod terminal;
-mod uicomponents;
-pub use annotationtype::AnnotationType;
-mod annotation;
-use annotation::Annotation;
-mod filetype;
-use annotatedstring::AnnotatedString;
-use documentstatus::DocumentStatus;
-use filetype::FileType;
-use line::Line;
-use terminal::Terminal;
-use uicomponents::{CommandBar, MessageBar, StatusBar, UIComponent, View};
+use crate::prelude::*;
 
-use self::command::{
+mod annotatedstring;
+use annotatedstring::AnnotatedString;
+
+mod command;
+use command::{
     Command::{self, Edit, Move, System},
     Edit::InsertNewline,
     Move::{Down, Left, Right, Up},
     System::{Dismiss, Quit, Resize, Save, Search},
 };
+
+mod line;
+use line::Line;
+
+mod terminal;
+use terminal::Terminal;
+
+mod uicomponents;
+use uicomponents::{View, CommandBar, MessageBar, StatusBar, UIComponent};
+
+mod annotation;
+use annotation::Annotation;
+
+pub mod annotationtype;
+pub use annotationtype::AnnotationType;
+
+mod documentstatus;
+use documentstatus::DocumentStatus;
+
+mod filetype;
+use filetype::FileType;
 
 const QUIT_TIMES: u8 = 3;
 
@@ -60,14 +68,17 @@ pub struct Editor {
 }
 
 impl Editor {
-    // region: struct lifecycle
-
-    pub fn new() -> Result<Self, Error> {
+    fn initialize_panic_hook() {
         let current_hook = take_hook();
         set_hook(Box::new(move |panic_info| {
             let _ = Terminal::terminate();
             current_hook(panic_info);
         }));
+    }
+    // 初始化编辑器
+    pub fn new() -> Result<Self, Error> {
+        Self::initialize_panic_hook();
+        // 初始化终端
         Terminal::initialize()?;
 
         let mut editor = Self::default();
@@ -79,16 +90,14 @@ impl Editor {
         if let Some(file_name) = args.get(1) {
             debug_assert!(!file_name.is_empty());
             if editor.view.load(file_name).is_err() {
-                editor.update_message(&format!("ERR: Could not open file: {file_name}"));
+                editor.update_message(&format!("ERROR: 无法打开文件: {file_name}"));
             }
         }
         editor.refresh_status();
         Ok(editor)
     }
 
-    // endregion
-
-    // region: Event Loop
+    // 事件循环
     pub fn run(&mut self) {
         loop {
             self.refresh_screen();
@@ -104,7 +113,8 @@ impl Editor {
                     }
                     #[cfg(not(debug_assertions))]
                     {
-                        let _ = err;
+                        // 错误提示
+                        self.update_message("读取事件时发生错误，请重试。");
                     }
                 }
             }
@@ -168,19 +178,16 @@ impl Editor {
             }
         }
     }
-    // endregion
 
-    // region command handling
-
+    //处理命令
     fn process_command(&mut self, command: Command) {
-        if let System(Resize(size)) = command {
-            self.handle_resize_command(size);
-            return;
-        }
-        match self.prompt_type {
-            PromptType::Search => self.process_command_during_search(command),
-            PromptType::Save => self.process_command_during_save(command),
-            PromptType::None => self.process_command_no_prompt(command),
+        match command {
+            System(Resize(size)) => self.handle_resize_command(size),
+            _ => match self.prompt_type {
+                PromptType::Search => self.process_command_during_search(command),
+                PromptType::Save => self.process_command_during_save(command),
+                PromptType::None => self.process_command_no_prompt(command),
+            }
         }
     }
 
@@ -189,10 +196,10 @@ impl Editor {
             self.handle_quit_command();
             return;
         }
-        self.reset_quit_times(); // Reset quit times for all other commands
+        self.reset_quit_times(); // 重置退出计数
 
         match command {
-            System(Quit | Resize(_) | Dismiss) => {} // Quit and Resize already handled above, others not applicable
+            System(Quit | Resize(_) | Dismiss) => {} // 退出和调整大小已经在上面处理，其他不适用
             System(Search) => self.set_prompt(PromptType::Search),
             System(Save) => self.handle_save_command(),
             Edit(edit_command) => self.view.handle_edit_command(edit_command),
@@ -200,8 +207,7 @@ impl Editor {
         }
     }
 
-    // region resize command handling
-
+    // 处理调整大小命令
     fn handle_resize_command(&mut self, size: Size) {
         self.terminal_size = size;
         self.view.resize(Size {
@@ -217,18 +223,13 @@ impl Editor {
         self.command_bar.resize(bar_size);
     }
 
-    // endregion
-
-    // region quit command handling
-
-    // clippy::arithmetic_side_effects: quit_times is guaranteed to be between 0 and QUIT_TIMES
-    #[allow(clippy::arithmetic_side_effects)]
+    // 处理退出命令
     fn handle_quit_command(&mut self) {
         if !self.view.get_status().is_modified || self.quit_times + 1 == QUIT_TIMES {
             self.should_quit = true;
         } else if self.view.get_status().is_modified {
             self.update_message(&format!(
-                "WARNING! File has unsaved changes. Press Ctrl-Q {} more times to quit.",
+                "WARNING! 文件有未保存的更改。再按 Ctrl-Q {} 次以退出。",
                 QUIT_TIMES - self.quit_times - 1
             ));
 
@@ -241,10 +242,8 @@ impl Editor {
             self.update_message("");
         }
     }
-    // end region
-
-    // region save command & prompt handling
-
+    
+    // 处理保存模式下的命令
     fn handle_save_command(&mut self) {
         if self.view.is_file_loaded() {
             self.save(None);
@@ -254,10 +253,10 @@ impl Editor {
     }
     fn process_command_during_save(&mut self, command: Command) {
         match command {
-            System(Quit | Resize(_) | Search | Save) | Move(_) => {} // Not applicable during save, Resize already handled at this stage
+            System(Quit | Resize(_) | Search | Save) | Move(_) => {} // 保存过程中不适用，调整大小已经在此阶段处理
             System(Dismiss) => {
                 self.set_prompt(PromptType::None);
-                self.update_message("Save aborted.");
+                self.update_message("保存已取消。");
             }
             Edit(InsertNewline) => {
                 let file_name = self.command_bar.value();
@@ -274,15 +273,13 @@ impl Editor {
             self.view.save()
         };
         if result.is_ok() {
-            self.update_message("File saved successfully.");
+            self.update_message("文件保存成功！");
         } else {
-            self.update_message("Error writing file!");
+            self.update_message("文件写入失败！");
         }
     }
 
-    // endregion
-
-    // region search command & prompt handling
+    // 处理查找模式下的命令
     fn process_command_during_search(&mut self, command: Command) {
         match command {
             System(Dismiss) => {
@@ -300,43 +297,41 @@ impl Editor {
             }
             Move(Right | Down) => self.view.search_next(),
             Move(Up | Left) => self.view.search_prev(),
-            System(Quit | Resize(_) | Search | Save) | Move(_) => {} // Not applicable during save, Resize already handled at this stage
+            System(Quit | Resize(_) | Search | Save) | Move(_) => {} // 保存过程中不适用，调整大小已经在此阶段处理
         }
     }
-    // endregion
 
-    // region message & command bar
+    // 更新消息栏
     fn update_message(&mut self, new_message: &str) {
         self.message_bar.update_message(new_message);
     }
-    // endregion
 
-    //region prompt handling
+    // 判断是否在提示模式
     fn in_prompt(&self) -> bool {
         self.prompt_type.is_prompt()
     }
 
+    // 设置提示模式
     fn set_prompt(&mut self, prompt_type: PromptType) {
         match prompt_type {
-            PromptType::None => self.message_bar.set_needs_redraw(true), //Ensures the message bar is properly painted during the next redraw cycle
-            PromptType::Save => self.command_bar.set_prompt("Save as: "),
+            PromptType::None => self.message_bar.set_needs_redraw(true), // 确保消息栏在下一个重绘周期中正确绘制
+            PromptType::Save => self.command_bar.set_prompt("保存为（Esc 取消）: "),
             PromptType::Search => {
                 self.view.enter_search();
                 self.command_bar
-                    .set_prompt("Search (Esc to cancel, Arrows to navigate): ");
+                    .set_prompt("搜索（Esc 取消，箭头切换搜索结果）: ");
             }
         }
         self.command_bar.clear_value();
         self.prompt_type = prompt_type;
     }
-    // end region
 }
 
 impl Drop for Editor {
     fn drop(&mut self) {
         let _ = Terminal::terminate();
         if self.should_quit {
-            let _ = Terminal::print("Goodbye.\r\n");
+            let _ = Terminal::print("欢迎下次使用。\r\n");
         }
     }
 }

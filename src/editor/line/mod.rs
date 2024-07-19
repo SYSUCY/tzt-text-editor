@@ -1,18 +1,18 @@
-use crate::prelude::*;
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 use std::{
     cmp::min,
     fmt::{self, Display},
     ops::{Deref, Range},
 };
-mod graphemewidth;
-mod textfragment;
-use graphemewidth::GraphemeWidth;
-use textfragment::TextFragment;
-use unicode_segmentation::UnicodeSegmentation;
-use unicode_width::UnicodeWidthStr;
+use crate::prelude::*;
+use crate::editor::{AnnotatedString, Annotation};
 
-use super::AnnotatedString;
-use super::Annotation;
+mod graphemewidth;
+use graphemewidth::GraphemeWidth;
+
+mod textfragment;
+use textfragment::TextFragment;
 
 #[derive(Default, Clone)]
 pub struct Line {

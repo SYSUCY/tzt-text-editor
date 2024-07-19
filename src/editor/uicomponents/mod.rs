@@ -1,11 +1,14 @@
-mod commandbar;
-mod messagebar;
-mod statusbar;
 mod view;
-mod uicomponent;
-
-pub use commandbar::CommandBar;
-pub use messagebar::MessageBar;
-pub use statusbar::StatusBar;
 pub use view::View;
+
+mod commandbar;
+pub use commandbar::CommandBar;
+
+mod messagebar;
+pub use messagebar::MessageBar;
+
+mod statusbar;
+pub use statusbar::StatusBar;
+
+mod uicomponent;
 pub use uicomponent::UIComponent;

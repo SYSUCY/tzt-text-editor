@@ -2,13 +2,13 @@ use std::{
     cmp::{max, min},
     fmt::{self, Display},
 };
-use super::{Annotation, AnnotationType};
-mod annotatedstringpart;
-use annotatedstringpart::AnnotatedStringPart;
+use crate::editor::{Annotation, AnnotationType, ByteIdx};
+
 mod annotatedstringiterator;
 use annotatedstringiterator::AnnotatedStringIterator;
 
-use super::ByteIdx;
+mod annotatedstringpart;
+use annotatedstringpart::AnnotatedStringPart;
 
 #[derive(Default, Debug)]
 pub struct AnnotatedString {

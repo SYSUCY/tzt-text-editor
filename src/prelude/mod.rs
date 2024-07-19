@@ -4,11 +4,14 @@ pub type ByteIdx = usize;
 pub type ColIdx = usize;
 pub type RowIdx = usize;
 
-mod position;
-pub use position::Position;
-mod size;
-pub use size::Size;
 mod location;
 pub use location::Location;
+
+mod position;
+pub use position::Position;
+
+mod size;
+pub use size::Size;
+
 pub const NAME: &str = env!("CARGO_PKG_NAME");
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
