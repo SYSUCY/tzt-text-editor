@@ -41,8 +41,8 @@ enum PromptType {
 }
 
 impl PromptType {
-    fn is_none(&self) -> bool {
-        *self == Self::None
+    fn is_prompt(&self) -> bool {
+        matches!(self, Self::Search | Self::Save)
     }
 }
 
@@ -73,7 +73,7 @@ impl Editor {
         let mut editor = Self::default();
         let size = Terminal::size().unwrap_or_default();
         editor.handle_resize_command(size);
-        editor.update_message("HELP: Ctrl-F = find | Ctrl-S = save | Ctrl-Q = quit");
+        editor.update_message("帮助信息: Ctrl + F = 查找 | Ctrl + S = 保存 | Ctrl + Q = 退出");
 
         let args: Vec<String> = env::args().collect();
         if let Some(file_name) = args.get(1) {
@@ -313,7 +313,7 @@ impl Editor {
 
     //region prompt handling
     fn in_prompt(&self) -> bool {
-        !self.prompt_type.is_none()
+        self.prompt_type.is_prompt()
     }
 
     fn set_prompt(&mut self, prompt_type: PromptType) {
