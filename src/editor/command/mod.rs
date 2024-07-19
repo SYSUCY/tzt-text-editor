@@ -8,6 +8,7 @@ pub use system::System;
 mod edit;
 pub use edit::Edit;
 
+//  Command 枚举，用于表示不同类型的命令：移动命令、编辑命令和系统命令
 #[derive(Clone, Copy)]
 pub enum Command {
     Move(Move),
@@ -15,10 +16,11 @@ pub enum Command {
     System(System),
 }
 
-// clippy::as_conversions: Will run into problems for rare edge case systems where usize < u16
+// clippy::as_conversions：在 usize < u16 的边缘情况下，会遇到问题
 #[allow(clippy::as_conversions)]
 impl TryFrom<Event> for Command {
     type Error = String;
+    // 将 Event 转换为 Command
     fn try_from(event: Event) -> Result<Self, Self::Error> {
         match event {
             Event::Key(key_event) => Edit::try_from(key_event)

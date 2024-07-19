@@ -16,11 +16,12 @@ use super::Annotation;
 
 #[derive(Default, Clone)]
 pub struct Line {
-    fragments: Vec<TextFragment>,
-    string: String,
+    fragments: Vec<TextFragment>, // fragments（文本片段向量）
+    string: String, // string（字符串）
 }
 
 impl Line {
+    // 通过字符串构建一个 Line 实例
     pub fn from(line_str: &str) -> Self {
         debug_assert!(line_str.is_empty() || line_str.lines().count() == 1);
         let fragments = Self::str_to_fragments(line_str);
@@ -29,7 +30,8 @@ impl Line {
             string: String::from(line_str),
         }
     }
-
+    // 字符串转换为文本片段的向量
+    // 每个片段包含 grapheme（字素）、rendered_width（渲染宽度）、replacement（替代字符）、start（开始位置）
     fn str_to_fragments(line_str: &str) -> Vec<TextFragment> {
         line_str
             .grapheme_indices(true)
@@ -56,16 +58,16 @@ impl Line {
             })
             .collect()
     }
-
+    // 
     fn rebuild_fragments(&mut self) {
         self.fragments = Self::str_to_fragments(&self.string);
     }
-
+    // 根据输入字符串返回一个替代字符，用于表示特定的控制字符或空白字符
     fn get_replacement_character(for_str: &str) -> Option<char> {
         let width = for_str.width();
         match for_str {
             " " => None,
-            "\t" => Some(' '),
+            "\t" => Some('\t'),
             _ if width > 0 && for_str.trim().is_empty() => Some('␣'),
             _ if width == 0 => {
                 let mut chars = for_str.chars();
@@ -79,20 +81,13 @@ impl Line {
             _ => None,
         }
     }
-    // Gets the visible graphemes in the given column index.
-    // Note that the column index is not the same as the grapheme index:
-    // A grapheme can have a width of 2 columns.
+    // 获取给定列索引中可见的字素。
+    // 请注意，列索引与字素索引不同：
+    // 一个字素的宽度可以为 2 列。
     pub fn get_visible_graphemes(&self, range: Range<ColIdx>) -> String {
         self.get_annotated_visible_substr(range, None).to_string()
     }
-
-    // Gets the annotated string in the given column index.
-    // Note that the column index is not the same as the grapheme index:
-    // A grapheme can have a width of 2 columns.
-    // Parameters:
-    // - range: The range of columns to get the annotated string from.
-    // - query: The query to highlight in the annotated string.
-    // - selected_match: The selected match to highlight in the annotated string. This is only applied if the query is not empty.
+    // 获取指定列范围内的带注解的字符串
     pub fn get_annotated_visible_substr(
         &self,
         range: Range<ColIdx>,
@@ -101,53 +96,51 @@ impl Line {
         if range.start >= range.end {
             return AnnotatedString::default();
         }
-        // Create a new annotated string
+    
+        // 创建新的注解字符串
         let mut result = AnnotatedString::from(&self.string);
-
-        // Apply annotations for this string
+    
+        // 应用注解
         if let Some(annotations) = annotations {
             for annotation in annotations {
                 result.add_annotation(annotation.annotation_type, annotation.start, annotation.end);
             }
         }
-
-        // Insert replacement characters, and truncate if needed.
-        // We do this backwards, otherwise the byte indices would be off in case a replacement character has a different width than the original character.
-
+    
+        // 处理替代字符并截断
         let mut fragment_start = self.width();
+        let mut truncate_left = false;
+        let mut truncate_right = false;
+        let mut replace_range = (None, None);
+    
         for fragment in self.fragments.iter().rev() {
             let fragment_end = fragment_start;
             fragment_start = fragment_start.saturating_sub(fragment.rendered_width.into());
-
+    
             if fragment_start > range.end {
-                continue; // No  processing needed if we haven't reached the visible range yet.
+                continue; // 没有到达可见范围，继续
             }
-
-            // clip right if the fragment is partially visible
+    
             if fragment_start < range.end && fragment_end > range.end {
-                result.replace(fragment.start, self.string.len(), "⋯");
-                continue;
+                replace_range = (Some(fragment.start), None);
+                truncate_right = true;
+                break;
             } else if fragment_start == range.end {
-                // Truncate right if we've reached the end of the visible range
-                result.truncate_right_from(fragment.start);
-                continue;
+                truncate_right = true;
+                replace_range = (Some(fragment.start), None);
+                break;
             }
-
-            // Fragment ends at the start of the range: Remove the entire left side of the string (if not already at start of string)
+    
             if fragment_end <= range.start {
-                result.truncate_left_until(fragment.start.saturating_add(fragment.grapheme.len()));
-                break; //End processing since all remaining fragments will be invisible.
+                truncate_left = true;
+                replace_range = (None, Some(fragment.start.saturating_add(fragment.grapheme.len())));
+                break;
             } else if fragment_start < range.start && fragment_end > range.start {
-                // Fragment overlaps with the start of range: Remove the left side of the string and add an ellipsis
-                result.replace(
-                    0,
-                    fragment.start.saturating_add(fragment.grapheme.len()),
-                    "⋯",
-                );
-                break; //End processing since all remaining fragments will be invisible.
+                replace_range = (Some(0), Some(fragment.start.saturating_add(fragment.grapheme.len())));
+                truncate_left = true;
+                break;
             }
-
-            // Fragment is fully within range: Apply replacement characters if appropriate
+    
             if fragment_start >= range.start && fragment_end <= range.end {
                 if let Some(replacement) = fragment.replacement {
                     let start = fragment.start;
@@ -156,13 +149,29 @@ impl Line {
                 }
             }
         }
-
+    
+        if truncate_left {
+            if let Some(end) = replace_range.1 {
+                result.truncate_left_until(end);
+            }
+        }
+        if truncate_right {
+            if let Some(start) = replace_range.0 {
+                result.truncate_right_from(start);
+            } else {
+                result.replace(self.string.len(), self.string.len(), "⋯");
+            }
+        } else if let Some(start) = replace_range.0 {
+            result.replace(start, self.string.len(), "⋯");
+        }
+    
         result
     }
-
+    //  返回行中的字素数量
     pub fn grapheme_count(&self) -> GraphemeIdx {
         self.fragments.len()
     }
+    // 计算直到指定字素的列宽
     pub fn width_until(&self, grapheme_idx: GraphemeIdx) -> ColIdx {
         self.fragments
             .iter()
@@ -173,10 +182,12 @@ impl Line {
             })
             .sum()
     }
+    // 返回整行的列宽
     pub fn width(&self) -> ColIdx {
         self.width_until(self.grapheme_count())
     }
-    // Inserts a character into the line, or appends it at the end if at == grapheme_count + 1
+    // 在指定字素索引处插入字符
+    // 将一个字符插入到行中，或者如果 at == grapheme_count + 1，则将其附加到行尾
     pub fn insert_char(&mut self, character: char, at: GraphemeIdx) {
         debug_assert!(at.saturating_sub(1) <= self.grapheme_count());
         if let Some(fragment) = self.fragments.get(at) {
@@ -186,9 +197,11 @@ impl Line {
         }
         self.rebuild_fragments();
     }
+    // 追加字符
     pub fn append_char(&mut self, character: char) {
         self.insert_char(character, self.grapheme_count());
     }
+    // 删除指定字素索引处的字符
     pub fn delete(&mut self, at: GraphemeIdx) {
         debug_assert!(at <= self.grapheme_count());
         if let Some(fragment) = self.fragments.get(at) {
@@ -198,16 +211,16 @@ impl Line {
             self.rebuild_fragments();
         }
     }
-
+    // 删除行末尾的字符
     pub fn delete_last(&mut self) {
         self.delete(self.grapheme_count().saturating_sub(1));
     }
-
+    // 将另一行的内容附加到当前行，并更新 fragments
     pub fn append(&mut self, other: &Self) {
         self.string.push_str(&other.string);
         self.rebuild_fragments();
     }
-
+    // 在指定字素索引处拆分行，并返回拆分后的剩余部分
     pub fn split(&mut self, at: GraphemeIdx) -> Self {
         if let Some(fragment) = self.fragments.get(at) {
             let remainder = self.string.split_off(fragment.start);
@@ -217,6 +230,7 @@ impl Line {
             Self::default()
         }
     }
+    // 将字节索引转换为字素索引
     fn byte_idx_to_grapheme_idx(&self, byte_idx: ByteIdx) -> Option<GraphemeIdx> {
         if byte_idx > self.string.len() {
             return None;
@@ -225,6 +239,7 @@ impl Line {
             .iter()
             .position(|fragment| fragment.start >= byte_idx)
     }
+    // 将字素索引转换为字节索引
     fn grapheme_idx_to_byte_idx(&self, grapheme_idx: GraphemeIdx) -> ByteIdx {
         debug_assert!(grapheme_idx <= self.grapheme_count());
         if grapheme_idx == 0 || self.grapheme_count() == 0 {
@@ -244,6 +259,7 @@ impl Line {
             |fragment| fragment.start,
         )
     }
+    // 从指定字素索引向前搜索查询字符串，并返回匹配的字素索引
     pub fn search_forward(
         &self,
         query: &str,
@@ -258,6 +274,7 @@ impl Line {
             .first()
             .map(|(_, grapheme_idx)| *grapheme_idx)
     }
+    // 从指定字素索引向后搜索查询字符串，并返回匹配的字素索引
     pub fn search_backward(
         &self,
         query: &str,
@@ -277,53 +294,64 @@ impl Line {
             .last()
             .map(|(_, grapheme_idx)| *grapheme_idx)
     }
+    // 在指定范围内查找查询字符串的所有匹配项，并返回匹配的字节索引和字素索引
     pub fn find_all(&self, query: &str, range: Range<ByteIdx>) -> Vec<(ByteIdx, GraphemeIdx)> {
-        let end = min(range.end, self.string.len());
+        // Ensure that the range is valid and bounded by the string length
         let start = range.start;
+        let end = min(range.end, self.string.len());
         debug_assert!(start <= end);
-        debug_assert!(start <= self.string.len());
-        self.string.get(start..end).map_or_else(Vec::new, |substr| {
-            let potential_matches: Vec<ByteIdx> = substr
-                .match_indices(query) // find _potential_ matches within the substring
-                .map(|(relative_start_idx, _)| {
-                    relative_start_idx.saturating_add(start) //convert their relative indices to absolute indices
-                })
-                .collect();
-            self.match_graphme_clusters(&potential_matches, query) //convert the potential matches into matches which align with the grapheme boundaries.
-        })
-    }
-
-    // Finds all matches which align with grapheme boundaries.
-    // Parameters:
-    // - query: The query to search for.
-    // - matches: A vector of byte indices of potential matches, which might or might not align with the grapheme clusters.
-    // Returns:
-    // A Vec of (byte_index, grapheme_idx) pairs for each match that alignes with the grapheme clusters, where byte_index is the byte index of the match, and grapheme_idx is the grapheme index of the match.
+    
+        // 根据给定的范围提取子字符串
+        let substr = self.string.get(start..end);
+    
+        // 如果子字符串不可用，则提前返回
+        if substr.is_none() {
+            return Vec::new();
+        }
+    
+        let substr = substr.unwrap();
+        
+        // 在子字符串中查找潜在匹配项
+        let potential_matches: Vec<ByteIdx> = substr
+            .match_indices(query)
+            .map(|(relative_start_idx, _)| relative_start_idx.saturating_add(start))
+            .collect();
+    
+        // 将潜在匹配项转换为与字素边界对齐的匹配项
+        self.match_graphme_clusters(&potential_matches, query)
+    }    
+    // 查找与字素边界对齐的所有匹配项。
+    // 参数：
+    // - query：要搜索的查询。
+    // - matches：潜在匹配项的字节索引向量，可能与字素簇对齐，也可能不对齐。
+    // 返回：
     fn match_graphme_clusters(
         &self,
         matches: &[ByteIdx],
         query: &str,
     ) -> Vec<(ByteIdx, GraphemeIdx)> {
         let grapheme_count = query.graphemes(true).count();
+        let query_graphemes: Vec<&str> = query.graphemes(true).collect();
+    
         matches
             .iter()
             .filter_map(|&start| {
-                self.byte_idx_to_grapheme_idx(start)
-                    .and_then(|grapheme_idx| {
-                        self.fragments
-                            .get(grapheme_idx..grapheme_idx.saturating_add(grapheme_count)) // get all fragments that should be part of the match
-                            .and_then(|fragments| {
-                                let substring = fragments
-                                    .iter()
-                                    .map(|fragment| fragment.grapheme.as_str())
-                                    .collect::<String>(); //combine the fragments into a single string.
-                                (substring == query).then_some((start, grapheme_idx))
-                                // if the combined string matches the query, we have an actual match.
-                            })
-                    })
+                self.byte_idx_to_grapheme_idx(start).and_then(|grapheme_idx| {
+                    let end_idx = grapheme_idx.saturating_add(grapheme_count);
+                    self.fragments
+                        .get(grapheme_idx..end_idx)
+                        .map(|fragments| {
+                            let fragment_graphemes: Vec<&str> = fragments
+                                .iter()
+                                .map(|fragment| fragment.grapheme.as_str())
+                                .collect();
+                            (query_graphemes == fragment_graphemes).then_some((start, grapheme_idx))
+                        })
+                        .flatten() // 处理 Option<Option<(ByteIdx, GraphemeIdx)>> 类型
+                })
             })
             .collect()
-    }
+    }    
 }
 
 impl Display for Line {

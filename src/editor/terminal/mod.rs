@@ -15,12 +15,12 @@ use std::io::{stdout, Error, Write};
 
 use super::AnnotatedString;
 
-/// Represents the Terminal.
-/// Edge Case for platforms where `usize` < `u16`:
-/// Regardless of the actual size of the Terminal, this representation
-/// only spans over at most `usize::MAX` or `u16::size` rows/columns, whichever is smaller.
-/// Each size returned truncates to min(`usize::MAX`, `u16::MAX`)
-/// And should you attempt to set the caret out of these bounds, it will also be truncated.
+/// 表示终端。
+/// 对于 `usize` < `u16` 的平台，边缘情况如下：
+/// 无论终端的实际大小如何，此表示
+/// 最多仅跨越 `usize::MAX` 或 `u16::size` 行/列，以较小者为准。
+/// 返回的每个大小都会截断为 min(`usize::MAX`, `u16::MAX`)
+/// 如果尝试将插入符号设置为超出这些范围，它也将被截断。
 pub struct Terminal;
 
 impl Terminal {
@@ -48,11 +48,11 @@ impl Terminal {
         Self::queue_command(Clear(ClearType::CurrentLine))?;
         Ok(())
     }
-    /// Moves the caret to the given Position.
-    /// # Arguments
-    /// * `Position` - the  `Position`to move the caret to. Will be truncated to `u16::MAX` if bigger.
+    /// 将插入符号移动到指定位置。
+    /// # 参数
+    /// * `Position` - 将插入符号移动到的 `Position`。如果大于 `u16::MAX`，将被截断为 `u16::MAX`。
     pub fn move_caret_to(position: Position) -> Result<(), Error> {
-        // clippy::as_conversions: See doc above
+        // clippy::as_conversions: 参见上面的文档
         #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
         Self::queue_command(MoveTo(position.col as u16, position.row as u16))?;
         Ok(())
@@ -132,15 +132,15 @@ impl Terminal {
         let width = Self::size()?.width;
         Self::print_row(row, &format!("{Reverse}{line_text:width$.width$}{Reset}"))
     }
-    /// Returns the current size of this Terminal.
-    /// Edge Case for systems with `usize` < `u16`:
-    /// * A `Size` representing the terminal size. Any coordinate `z` truncated to `usize` if `usize` < `z` < `u16`
+    /// 返回此终端的当前大小。
+    /// 具有 `usize` < `u16` 的系统的边缘情况：
+    /// * 表示终端大小的 `Size`。如果 `usize` < `z` < `u16`，则任何坐标 `z` 都会截断为 `usize`
     pub fn size() -> Result<Size, Error> {
         let (width_u16, height_u16) = size()?;
-        // clippy::as_conversions: See doc above
+        // clippy::as_conversions: 参见上面的文档
         #[allow(clippy::as_conversions)]
         let height = height_u16 as usize;
-        // clippy::as_conversions: See doc above
+        // clippy::as_conversions: 参见上面的文档
         #[allow(clippy::as_conversions)]
         let width = width_u16 as usize;
         Ok(Size { height, width })

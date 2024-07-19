@@ -3,6 +3,7 @@ use crossterm::event::{
     KeyEvent, KeyModifiers,
 };
 
+// Move 枚举，表示各种移动命令，如向上、向下、向左、向右移动等
 #[derive(Clone, Copy)]
 pub enum Move {
     PageUp,
@@ -14,8 +15,10 @@ pub enum Move {
     Right,
     Down,
 }
+
 impl TryFrom<KeyEvent> for Move {
     type Error = String;
+    // 将 KeyEvent 转换为 Move
     fn try_from(event: KeyEvent) -> Result<Self, Self::Error> {
         let KeyEvent {
             code, modifiers, ..

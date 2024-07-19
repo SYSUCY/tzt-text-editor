@@ -13,16 +13,18 @@ use super::ByteIdx;
 #[derive(Default, Debug)]
 pub struct AnnotatedString {
     string: String,
-    annotations: Vec<Annotation>,
+    annotations: Vec<Annotation>, // 包含注释的数组
 }
 
 impl AnnotatedString {
+    // 从字符串创建一个 AnnotatedString
     pub fn from(string: &str) -> Self {
         Self {
             string: String::from(string),
             annotations: Vec::new(),
         }
     }
+    // 添加注解
     pub fn add_annotation(
         &mut self,
         annotation_type: AnnotationType,
@@ -36,12 +38,15 @@ impl AnnotatedString {
             end,
         });
     }
+    // 从左侧截断字符串直到指定索引
     pub fn truncate_left_until(&mut self, until: ByteIdx) {
         self.replace(0, until, "");
     }
+    // 从指定索引开始向右截断字符串
     pub fn truncate_right_from(&mut self, from: ByteIdx) {
         self.replace(from, self.string.len(), "");
     }
+    // 替换字符串的某个范围，并调整注解
     pub fn replace(&mut self, start: ByteIdx, end: ByteIdx, new_string: &str) {
         let end = min(end, self.string.len());
         debug_assert!(start <= end);
@@ -50,71 +55,51 @@ impl AnnotatedString {
             return;
         }
         self.string.replace_range(start..end, new_string);
-
-        let replaced_range_len = end.saturating_sub(start); // This is the range we want to replace.
-        let shortened = new_string.len() < replaced_range_len;
-        let len_difference = new_string.len().abs_diff(replaced_range_len); // This is how much longer or shorter the new range is.
-
+    
+        let replaced_range_len = end - start;
+        let len_difference = new_string.len().abs_diff(replaced_range_len);
+    
         if len_difference == 0 {
-            //No adjustment of annotations needed in case the replacement did not result in a change in length.
             return;
         }
-
-        self.annotations.iter_mut().for_each(|annotation| {
-            annotation.start = if annotation.start >= end {
-                // For annotations starting after the replaced range, we move the start index by the difference in length.
+    
+        let adjust_annotation = |idx: &mut ByteIdx, _boundary: ByteIdx, shortened: bool| {
+            if *idx >= end {
                 if shortened {
-                    annotation.start.saturating_sub(len_difference)
+                    *idx = idx.saturating_sub(len_difference);
                 } else {
-                    annotation.start.saturating_add(len_difference)
+                    *idx += len_difference;
                 }
-            } else if annotation.start >= start {
-                // For annotations starting within the replaced range, we move the start index by the difference in length, constrained to the beginning or end of the replaced range.
+            } else if *idx > start {
                 if shortened {
-                    max(start, annotation.start.saturating_sub(len_difference))
+                    *idx = max(start, idx.saturating_sub(len_difference));
                 } else {
-                    min(end, annotation.start.saturating_add(len_difference))
+                    *idx = min(end, idx.saturating_add(len_difference));
                 }
-            } else {
-                annotation.start
-            };
-
-            annotation.end = if annotation.end >= end {
-                // For annotations ending after the replaced range, we move the end index by the difference in length.
-                if shortened {
-                    annotation.end.saturating_sub(len_difference)
-                } else {
-                    annotation.end.saturating_add(len_difference)
-                }
-            } else if annotation.end >= start {
-                // For annotations ending within the replaced range, we move the end index by the difference in length, constrained to the beginning or end of the replaced range.
-                if shortened {
-                    max(start, annotation.end.saturating_sub(len_difference))
-                } else {
-                    min(end, annotation.end.saturating_add(len_difference))
-                }
-            } else {
-                annotation.end
             }
+        };
+    
+        self.annotations.iter_mut().for_each(|annotation| {
+            adjust_annotation(&mut annotation.start, start, new_string.len() < replaced_range_len);
+            adjust_annotation(&mut annotation.end, start, new_string.len() < replaced_range_len);
         });
-
-        //Filter out empty annotations, in case the previous step resulted in any.
-        self.annotations.retain(|annotation| {
-            annotation.start < annotation.end && annotation.start < self.string.len()
-        });
-    }
+    
+        self.annotations.retain(|annotation| annotation.start < annotation.end && annotation.start < self.string.len());
+    }    
 }
 
 impl Display for AnnotatedString {
+    // 实现 fmt 方法，用于格式化输出
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter, "{}", self.string)
     }
 }
-
+// 
 impl<'a> IntoIterator for &'a AnnotatedString {
-    type Item = AnnotatedStringPart<'a>;
-    type IntoIter = AnnotatedStringIterator<'a>;
+    type Item = AnnotatedStringPart<'a>; // 迭代器的元素类型是 AnnotatedStringPart
+    type IntoIter = AnnotatedStringIterator<'a>; // 迭代器类型是 AnnotatedStringIterator
 
+    // 返回一个 AnnotatedStringIterator
     fn into_iter(self) -> Self::IntoIter {
         AnnotatedStringIterator {
             annotated_string: self,
