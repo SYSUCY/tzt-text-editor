@@ -157,11 +157,7 @@ impl Terminal {
     /// * 表示终端大小的 `Size`。如果 `usize` < `z` < `u16`，则任何坐标 `z` 都会截断为 `usize`
     pub fn size() -> Result<Size, Error> {
         let (width_u16, height_u16) = size()?;
-        // clippy::as_conversions: 参见上面的文档
-        #[allow(clippy::as_conversions)]
         let height = height_u16 as usize;
-        // clippy::as_conversions: 参见上面的文档
-        #[allow(clippy::as_conversions)]
         let width = width_u16 as usize;
         Ok(Size { height, width })
     }
