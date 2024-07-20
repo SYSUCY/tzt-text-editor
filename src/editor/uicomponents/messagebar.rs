@@ -4,7 +4,6 @@ use std::{
 };
 
 use crate::prelude::*;
-
 use super::super::Terminal;
 use super::UIComponent;
 
@@ -33,7 +32,7 @@ impl Message {
 pub struct MessageBar {
     current_message: Message,
     needs_redraw: bool,
-    cleared_after_expiry: bool, //ensures we can properly hide expired messages
+    cleared_after_expiry: bool, // 确保我们能够正确隐藏过期消息
 }
 
 impl MessageBar {
@@ -51,13 +50,16 @@ impl UIComponent for MessageBar {
     fn set_needs_redraw(&mut self, value: bool) {
         self.needs_redraw = value;
     }
+
     fn needs_redraw(&self) -> bool {
         (!self.cleared_after_expiry && self.current_message.is_expired()) || self.needs_redraw
     }
+
     fn set_size(&mut self, _: Size) {}
+
     fn draw(&mut self, origin: RowIdx) -> Result<(), Error> {
         if self.current_message.is_expired() {
-            self.cleared_after_expiry = true; // Upon expiration, we need to write out "" once to clear the message. To avoid clearing more than necessary, we  keep track of the fact that we've already cleared the expired message once.
+            self.cleared_after_expiry = true; // 过期时，我们需要写出 "" 一次以清除消息。为了避免清除过多次，我们跟踪已经清除过期消息的事实。
         }
         let message = if self.current_message.is_expired() {
             ""

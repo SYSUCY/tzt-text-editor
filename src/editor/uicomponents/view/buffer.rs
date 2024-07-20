@@ -74,7 +74,7 @@ impl Buffer {
             .cycle()
             .skip(from.line_idx)
             .take(self.lines.len().saturating_add(1))
-        //taking one more, to search the current line twice (once from the middle, once from the start)
+        // 取多一个，搜索当前行两次（一次从中间开始，一次从开始）
         {
             let from_grapheme_idx = if is_first {
                 is_first = false;
@@ -179,13 +179,9 @@ impl Buffer {
                 && self.height() > at.line_idx.saturating_add(1)
             {
                 let next_line = self.lines.remove(at.line_idx.saturating_add(1));
-                // clippy::indexing_slicing: We checked for existence of this line in the surrounding if statment
-                #[allow(clippy::indexing_slicing)]
                 self.lines[at.line_idx].append(&next_line);
                 self.dirty = true;
             } else if at.grapheme_idx < line.grapheme_count() {
-                // clippy::indexing_slicing: We checked for existence of this line in the surrounding if statment
-                #[allow(clippy::indexing_slicing)]
                 self.lines[at.line_idx].delete(at.grapheme_idx);
                 self.dirty = true;
             }

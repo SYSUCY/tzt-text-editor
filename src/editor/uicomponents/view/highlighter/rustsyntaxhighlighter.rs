@@ -75,13 +75,13 @@ impl RustSyntaxHighlighter {
 
         while let Some((_, char)) = chars.next() {
             if char == '/' {
-                //check for an ml comment opener
+                //检查多行注释的起始符号
                 if let Some((_, '*')) = chars.peek() {
                     self.ml_comment_balance = self.ml_comment_balance.saturating_add(1);
                     chars.next();
                 }
             } else if self.ml_comment_balance == 0 {
-                return None; // We saw no opener, and we are not currently in a ML comment, returning None
+                return None; // 没有找到起始符号，且当前不在多行注释中，返回None
             } else if char == '*' {
                 if let Some((idx, '/')) = chars.peek() {
                     self.ml_comment_balance = self.ml_comment_balance.saturating_sub(1);
@@ -108,7 +108,7 @@ impl RustSyntaxHighlighter {
         let mut chars = string.char_indices();
         while let Some((idx, char)) = chars.next() {
             if char == '\\' && self.in_ml_string {
-                chars.next(); // Skip the escape character.
+                chars.next(); // 跳过转义字符
                 continue;
             }
             if char == '"' {
@@ -160,10 +160,10 @@ impl SyntaxHighlighter for RustSyntaxHighlighter {
         let mut result = Vec::new();
         let mut iterator = line.split_word_bound_indices().peekable();
         if let Some(annotation) = self.initial_annotation(line) {
-            //handle dangling multi line annotations (i.e. ML comments or strings)
+            //处理悬挂的多行注释或字符串
 
             result.push(annotation);
-            // Skip over any subsequent word which has already been annotated in this step
+            // 跳过已经注释过的单词
             while let Some(&(next_idx, _)) = iterator.peek() {
                 if next_idx >= annotation.end {
                     break;
@@ -176,7 +176,7 @@ impl SyntaxHighlighter for RustSyntaxHighlighter {
             if let Some(mut annotation) = self.annotate_remainder(remainder) {
                 annotation.shift(start_idx);
                 result.push(annotation);
-                // Skip over any subsequent word which has already been annotated in this step
+                // 跳过已经注释过的单词
                 while let Some(&(next_idx, _)) = iterator.peek() {
                     if next_idx >= annotation.end {
                         break;
@@ -233,14 +233,14 @@ fn annotate_char(string: &str) -> Option<Annotation> {
     let mut iter = string.split_word_bound_indices().peekable();
     if let Some((_, "\'")) = iter.next() {
         if let Some((_, "\\")) = iter.peek() {
-            iter.next(); //Skip the escape character
+            iter.next(); //跳过转义字符
         }
-        iter.next(); //Skip until the closing quote
+        iter.next(); //跳到结束引号
         if let Some((idx, "\'")) = iter.next() {
             return Some(Annotation {
                 annotation_type: AnnotationType::Char,
                 start: 0,
-                end: idx.saturating_add(1), //Include the closing quote in the annotation
+                end: idx.saturating_add(1), //包含结束引号
             });
         }
     }
@@ -281,17 +281,17 @@ fn is_valid_number(word: &str) -> bool {
     }
     let mut chars = word.chars();
 
-    // Check the first character
+    // 检查第一个字符
     if let Some(first_char) = chars.next() {
         if !first_char.is_ascii_digit() {
-            return false; // Numbers must start with a digit
+            return false; // 数字必须以数字开头
         }
     }
 
     let mut seen_dot = false;
     let mut seen_e = false;
     let mut prev_was_digit = true;
-    // Iterate over the remaining characters
+    // 迭代剩余字符
     for char in chars {
         match char {
             '0'..='9' => {
@@ -299,45 +299,45 @@ fn is_valid_number(word: &str) -> bool {
             }
             '_' => {
                 if !prev_was_digit {
-                    return false; // Underscores must be between digits
+                    return false; // 下划线必须在数字之间
                 }
                 prev_was_digit = false;
             }
             '.' => {
                 if seen_dot || seen_e || !prev_was_digit {
-                    return false; // Disallow multiple dots, dots after 'e' or dots not after a digit
+                    return false; // 禁止多个点，禁止点在'e'之后，禁止点不在数字之后
                 }
                 seen_dot = true;
                 prev_was_digit = false;
             }
             'e' | 'E' => {
                 if seen_e || !prev_was_digit {
-                    return false; // Disallow multiple 'e's or 'e' not after a digit
+                    return false; // 禁止多个'e'或'e'不在数字之后
                 }
                 seen_e = true;
                 prev_was_digit = false;
             }
             _ => {
-                return false; // Invalid character
+                return false; // 非法字符
             }
         }
     }
 
-    prev_was_digit // Must end with a digit
+    prev_was_digit // 必须以数字结束
 }
 
 fn is_numeric_literal(word: &str) -> bool {
     if word.len() < 3 {
-        //For a literal, we need a leading `0`, a suffix and at least one digit
+        //对于字面量，我们需要一个前导'0'，一个后缀和至少一个数字
         return false;
     }
     let mut chars = word.chars();
     if chars.next() != Some('0') {
-        // Check the first character for a leading 0
+        // 检查第一个字符是否为前导0
         return false;
     }
     let base = match chars.next() {
-        //Check the second character for a proper base
+        // 检查第二个字符是否为有效基数
         Some('b' | 'B') => 2,
         Some('o' | 'O') => 8,
         Some('x' | 'X') => 16,

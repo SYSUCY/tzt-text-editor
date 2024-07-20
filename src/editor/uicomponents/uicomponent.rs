@@ -2,26 +2,26 @@ use crate::prelude::*;
 use std::io::Error;
 
 pub trait UIComponent {
-    // Marks this UI component as in need of redrawing (or not)
+    // 标记此 UI 组件需要重绘（或不需要）
     fn set_needs_redraw(&mut self, value: bool);
-    // Determines if a component needs to be redrawn or not
+    // 确定组件是否需要重绘
     fn needs_redraw(&self) -> bool;
 
-    // Updates the size and marks as redraw-needed
+    // 更新尺寸并标记为需要重绘
     fn resize(&mut self, size: Size) {
         self.set_size(size);
         self.set_needs_redraw(true);
     }
-    // Updates the size. Needs to be implemented by each component.
+    // 更新尺寸。需要由每个组件实现。
     fn set_size(&mut self, size: Size);
 
-    // Draw this component if it's visible and in need of redrawing
+    // 如果组件可见且需要重绘，则绘制此组件
     fn render(&mut self, origin_row: RowIdx) {
         if self.needs_redraw() {
             if let Err(err) = self.draw(origin_row) {
                 #[cfg(debug_assertions)]
                 {
-                    panic!("Could not render component: {err:?}");
+                    panic!("无法渲染组件: {err:?}");
                 }
                 #[cfg(not(debug_assertions))]
                 {
@@ -32,6 +32,7 @@ pub trait UIComponent {
             }
         }
     }
-    // Method to actually draw the component, must be implemented by each component
+    // 实际绘制组件的方法，必须由每个组件实现
     fn draw(&mut self, origin_row: RowIdx) -> Result<(), Error>;
 }
+

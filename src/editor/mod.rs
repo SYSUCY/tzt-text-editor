@@ -75,6 +75,7 @@ impl Editor {
             current_hook(panic_info);
         }));
     }
+
     // 初始化编辑器
     pub fn new() -> Result<Self, Error> {
         Self::initialize_panic_hook();
@@ -251,6 +252,7 @@ impl Editor {
             self.set_prompt(PromptType::Save);
         }
     }
+
     fn process_command_during_save(&mut self, command: Command) {
         match command {
             System(Quit | Resize(_) | Search | Save) | Move(_) => {} // 保存过程中不适用，调整大小已经在此阶段处理
@@ -266,6 +268,7 @@ impl Editor {
             Edit(edit_command) => self.command_bar.handle_edit_command(edit_command),
         }
     }
+    
     fn save(&mut self, file_name: Option<&str>) {
         let result = if let Some(name) = file_name {
             self.view.save_as(name)
